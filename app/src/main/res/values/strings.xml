@@ -11,4 +11,6 @@
     <string name="usb_camera_preview_size_failed">Could not negotiate a preview size with this camera</string>
     <string name="pseudo_color_label">Pseudo Color</string>
     <string name="pseudo_colors_need_yuyv">Pseudo colors use the thermal YUYV stream. Connect Tiny1C and pick a YUYV resolution.</string>
+    <string name="temperature_spot_value">%1$.1f °C</string>
+    <string name="temperature_no_map">Temperature map needs 256×384 YUYV (Tiny1C composite stream)</string>
 </resources>

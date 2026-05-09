@@ -13,8 +13,17 @@
         android:id="@+id/previewImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clickable="false"
         android:contentDescription="@string/pseudo_color_label"
         android:scaleType="fitCenter"
+        android:visibility="gone" />
+
+    <tech.ologn.tiny1c.thermal.ThermalSpotOverlayView
+        android:id="@+id/thermalSpotOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
         android:visibility="gone" />
 
     <TextView

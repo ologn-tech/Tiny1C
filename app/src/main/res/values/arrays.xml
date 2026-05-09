@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Selectable pseudo-color palettes. Values are Infisense PSEUDO_COLOR_MODE_* ints
+         (mode 0 = visible YUV→ARGB; modes 1+ pass through Libirprocess.yuyv_map_to_argb_pseudocolor).
+         Mode catalog: 1 white hot, 2 reserved, 3 hot, 4 cold, 5 sharp, 6 rainbow,
+         7 outdoor, 8 night, 9 medical, 10 testing, 11 black hot. -->
+    <string-array name="pseudo_color_mode_labels">
+        <item>Visible</item>
+        <item>White Hot</item>
+        <item>Reserved</item>
+        <item>Hot</item>
+        <item>Cold</item>
+        <item>Sharp</item>
+        <item>Rainbow</item>
+        <item>Outdoor</item>
+        <item>Night</item>
+        <item>Medical</item>
+        <item>Testing</item>
+        <item>Black Hot</item>
+    </string-array>
+    <integer-array name="pseudo_color_mode_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+    </integer-array>
+</resources>

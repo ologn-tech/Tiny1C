@@ -12,4 +12,6 @@
     <string name="usb_camera_error">USB camera error: %1$s</string>
     <string name="usb_camera_no_supported_size">No supported preview size from camera</string>
     <string name="usb_camera_preview_size_failed">Could not negotiate a preview size with this camera</string>
+    <string name="pseudo_color_palette">Palette</string>
+    <string name="pseudo_colors_need_yuyv">Pseudo colors use the thermal YUYV stream. Connect Tiny1C and pick a YUYV resolution.</string>
 </resources>

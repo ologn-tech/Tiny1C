@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">Tiny1C</string>
+    <string name="usb_camera_waiting">Plug in a USB camera to start preview</string>
+    <string name="usb_camera_attached">USB camera detected, requesting permission...</string>
+    <string name="usb_camera_attached_with_device">USB camera VID:%1$d PID:%2$d. Requesting permission...</string>
+    <string name="usb_camera_connected">USB camera connected</string>
+    <string name="usb_camera_disconnected">USB camera disconnected</string>
+    <string name="usb_camera_permission_denied">USB permission denied</string>
+    <string name="usb_camera_permission_denied_with_device">USB permission denied (VID:%1$d PID:%2$d)</string>
+    <string name="camera_runtime_permission_required">Camera permission is required. Please allow it.</string>
+    <string name="no_usb_camera_found">No USB camera found</string>
+    <string name="usb_camera_error">USB camera error: %1$s</string>
+    <string name="usb_camera_no_supported_size">No supported preview size from camera</string>
+    <string name="usb_camera_preview_size_failed">Could not negotiate a preview size with this camera</string>
 </resources>

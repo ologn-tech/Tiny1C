@@ -17,7 +17,6 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.infisense.iruvc.sdkisp.Libirparse
 import com.infisense.iruvc.sdkisp.Libirprocess
 import com.serenegiant.usb.IFrameCallback
 import com.serenegiant.usb.USBMonitor
@@ -312,7 +311,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Same pipeline as Thermography [ImageThread]: YUYV → libirprocess / libirparse → ARGB bitmap.
+     * Same pipeline as Thermography [ImageThread]: YUYV → libirprocess → ARGB bitmap.
      * Stock app uses [Libirprocess.yuyv_map_to_argb_pseudocolor] with IRPROC_COLOR_MODE_*.
      */
     private fun startYuyvThermalPreview(camera: UVCCamera) {
@@ -345,16 +344,12 @@ class MainActivity : ComponentActivity() {
                 val mode = selectedPseudoMode.get()
                 frameExecutor?.execute {
                     try {
-                        if (mode == 0) {
-                            Libirparse.yuv422_to_argb(copy, pixelCount, out)
-                        } else {
-                            Libirprocess.yuyv_map_to_argb_pseudocolor(
-                                copy,
-                                pixelCount.toLong(),
-                                mode,
-                                out
-                            )
-                        }
+                        Libirprocess.yuyv_map_to_argb_pseudocolor(
+                            copy,
+                            pixelCount.toLong(),
+                            mode,
+                            out
+                        )
                         val bmp = displayBitmap ?: return@execute
                         bmp.copyPixelsFromBuffer(ByteBuffer.wrap(out))
                         mainHandler.post { previewImage.setImageBitmap(bmp) }

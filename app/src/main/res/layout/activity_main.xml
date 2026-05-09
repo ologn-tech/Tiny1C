@@ -13,7 +13,7 @@
         android:id="@+id/previewImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:contentDescription="@string/pseudo_color_palette"
+        android:contentDescription="@string/pseudo_color_label"
         android:scaleType="fitCenter"
         android:visibility="gone" />
 
@@ -33,7 +33,6 @@
         android:textSize="14sp" />
 
     <LinearLayout
-        android:id="@+id/paletteBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
@@ -46,11 +45,10 @@
         android:paddingBottom="8dp">
 
         <TextView
-            android:id="@+id/paletteLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:paddingBottom="4dp"
-            android:text="@string/pseudo_color_palette"
+            android:text="@string/pseudo_color_label"
             android:textColor="@android:color/white"
             android:textSize="14sp" />
 

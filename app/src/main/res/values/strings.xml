@@ -12,5 +12,7 @@
     <string name="pseudo_color_label">Pseudo Color</string>
     <string name="pseudo_colors_need_yuyv">Pseudo colors use the thermal YUYV stream. Connect Tiny1C and pick a YUYV resolution.</string>
     <string name="temperature_spot_value">%1$.1f °C</string>
+    <string name="temperature_waiting">--.- °C</string>
     <string name="temperature_no_map">Temperature map needs 256×384 YUYV (Tiny1C composite stream)</string>
+    <string name="temperature_tap_hint">Tap preview to move the spot</string>
 </resources>

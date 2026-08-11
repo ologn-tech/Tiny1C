@@ -41,6 +41,7 @@ private const val INFISENSE_COMPOSITE_H = 384
 
 class MainActivity : ComponentActivity() {
     private lateinit var statusText: TextView
+    private lateinit var temperatureText: TextView
     private lateinit var thermalSpotOverlay: ThermalSpotOverlayView
     private lateinit var cameraView: TextureView
     private lateinit var previewImage: ImageView
@@ -58,8 +59,9 @@ class MainActivity : ComponentActivity() {
     /** Size passed to [Libirprocess] after optional composite split (e.g. 256×192). */
     private var decodeWidth = 0
     private var decodeHeight = 0
+    /** Temperature frame bytes for libirtemp [Libirtemp.get_point_temp] (USB_sample). */
     @Volatile
-    private var thermalBuffer: ByteArray? = null
+    private var thermalFrame: ByteArray? = null
     /** Selected pixel in thermal/YUYV bitmap space; used to refresh °C every frame. */
     @Volatile
     private var spotBitmapX: Int = -1
@@ -132,6 +134,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         statusText = findViewById(R.id.statusText)
+        temperatureText = findViewById(R.id.temperatureText)
         thermalSpotOverlay = findViewById(R.id.thermalSpotOverlay)
         cameraView = findViewById(R.id.cameraTextureView)
         previewImage = findViewById(R.id.previewImage)
@@ -140,7 +143,7 @@ class MainActivity : ComponentActivity() {
         setupPseudoColorGrid()
         thermalSpotOverlay.setOnTouchListener { _, event ->
             if (event.action != MotionEvent.ACTION_UP) return@setOnTouchListener false
-            val tb = thermalBuffer
+            val tb = thermalFrame
             val dw = decodeWidth
             val dh = decodeHeight
             val coords =
@@ -149,11 +152,7 @@ class MainActivity : ComponentActivity() {
             if (tb == null || dw <= 0 || dh <= 0) {
                 spotBitmapX = -1
                 spotBitmapY = -1
-                thermalSpotOverlay.setSpotAtViewCoords(
-                    event.x,
-                    event.y,
-                    getString(R.string.temperature_no_map)
-                )
+                showTemperatureUnavailable(event.x, event.y)
             } else {
                 spotBitmapX = coords.first
                 spotBitmapY = coords.second
@@ -163,27 +162,50 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Updates dot position and label from [thermalBuffer] for [spotBitmapX]/[spotBitmapY]. */
+    /**
+     * Updates HUD + spot overlay from libirtemp point measurement at [spotBitmapX]/[spotBitmapY].
+     */
     private fun refreshSpotOverlayFromThermal() {
         val sx = spotBitmapX
         val sy = spotBitmapY
         if (sx < 0 || sy < 0) return
         val dw = decodeWidth
         val dh = decodeHeight
-        val tb = thermalBuffer
+        val tb = thermalFrame
+        val celsius =
+            if (tb == null || dw <= 0 || dh <= 0) {
+                Float.NaN
+            } else {
+                InfisenseThermal.celsiusAt(tb, dw, dh, sx, sy)
+            }
         val label =
-            if (tb == null || dw <= 0) {
+            if (celsius.isNaN()) {
                 getString(R.string.temperature_no_map)
             } else {
-                val c = InfisenseThermal.celsiusAt(tb, dw, sx, sy)
-                if (c.isNaN()) getString(R.string.temperature_no_map)
-                else getString(R.string.temperature_spot_value, c)
+                getString(R.string.temperature_spot_value, celsius)
+            }
+        temperatureText.visibility = View.VISIBLE
+        temperatureText.text =
+            if (celsius.isNaN()) {
+                getString(R.string.temperature_waiting)
+            } else {
+                getString(R.string.temperature_spot_value, celsius)
             }
         val mapped =
             InfisenseThermal.bitmapPixelCenterToView(previewImage, dw, dh, sx, sy)
         if (mapped != null) {
             thermalSpotOverlay.setSpotAtViewCoords(mapped.first, mapped.second, label)
         }
+    }
+
+    private fun showTemperatureUnavailable(viewX: Float, viewY: Float) {
+        temperatureText.visibility = View.VISIBLE
+        temperatureText.text = getString(R.string.temperature_waiting)
+        thermalSpotOverlay.setSpotAtViewCoords(
+            viewX,
+            viewY,
+            getString(R.string.temperature_no_map)
+        )
     }
 
     private fun setupPseudoColorGrid() {
@@ -373,8 +395,10 @@ class MainActivity : ComponentActivity() {
     private fun startMjpegTexturePreview(camera: UVCCamera) {
         previewImage.visibility = View.GONE
         thermalSpotOverlay.visibility = View.GONE
+        temperatureText.visibility = View.GONE
         spotBitmapX = -1
         spotBitmapY = -1
+        thermalFrame = null
         thermalSpotOverlay.clearSpot()
         cameraView.alpha = 1f
         cameraView.isClickable = true
@@ -389,7 +413,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Same pipeline as Thermography [ImageThread]: YUYV → libirprocess → ARGB bitmap.
-     * Stock app uses [Libirprocess.yuyv_map_to_argb_pseudocolor] with IRPROC_COLOR_MODE_*.
+     * Temperature from USB_sample: split temp frame → [Libirtemp.get_point_temp].
      */
     private fun startYuyvThermalPreview(camera: UVCCamera) {
         val w = decodeWidth
@@ -408,18 +432,20 @@ class MainActivity : ComponentActivity() {
 
         previewImage.visibility = View.VISIBLE
         thermalSpotOverlay.visibility = View.VISIBLE
+        temperatureText.visibility = View.VISIBLE
+        temperatureText.text = getString(R.string.temperature_waiting)
         spotBitmapX = (w / 2).coerceIn(0, w - 1)
         spotBitmapY = (h / 2).coerceIn(0, h - 1)
         thermalSpotOverlay.clearSpot()
         cameraView.alpha = 0f
         cameraView.isClickable = false
         setPseudoColorEnabled(true)
-        statusText.text = getString(R.string.usb_camera_connected)
+        statusText.text = getString(R.string.temperature_tap_hint)
         val streamBytes = previewWidth * previewHeight * 2
         val hasThermalComposite =
             previewWidth == INFISENSE_COMPOSITE_W &&
                 previewHeight == INFISENSE_COMPOSITE_H
-        thermalBuffer = null
+        thermalFrame = null
         camera.setPreviewTexture(cameraView.surfaceTexture)
         camera.setFrameCallback(
             IFrameCallback { frame: ByteBuffer ->
@@ -438,7 +464,7 @@ class MainActivity : ComponentActivity() {
                         null
                     }
                 val yuyvSrc = split?.first ?: full
-                thermalBuffer = split?.second
+                thermalFrame = split?.second
                 if (yuyvSrc.size != yuyvBytes) return@IFrameCallback
                 val copy = yuyvSrc
                 val out = argbBuffer ?: return@IFrameCallback
@@ -570,7 +596,7 @@ class MainActivity : ComponentActivity() {
         previewHeight = 0
         decodeWidth = 0
         decodeHeight = 0
-        thermalBuffer = null
+        thermalFrame = null
         activeFrameFormat = -1
         spotBitmapX = -1
         spotBitmapY = -1
@@ -579,6 +605,8 @@ class MainActivity : ComponentActivity() {
             previewImage.setImageDrawable(null)
             thermalSpotOverlay.visibility = View.GONE
             thermalSpotOverlay.clearSpot()
+            temperatureText.visibility = View.GONE
+            temperatureText.text = getString(R.string.temperature_waiting)
             cameraView.alpha = 1f
             cameraView.isClickable = true
             setPseudoColorEnabled(true)

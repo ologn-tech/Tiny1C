@@ -18,7 +18,10 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.graphics.Color
+import android.util.Log
 import com.infisense.iruvc.sdkisp.Libirprocess
+import com.infisense.iruvc.sdkisp.Libirtemp
 import tech.ologn.tiny1c.thermal.InfisenseThermal
 import tech.ologn.tiny1c.thermal.ThermalSpotOverlayView
 import com.serenegiant.usb.IFrameCallback
@@ -59,9 +62,12 @@ class MainActivity : ComponentActivity() {
     /** Size passed to [Libirprocess] after optional composite split (e.g. 256×192). */
     private var decodeWidth = 0
     private var decodeHeight = 0
-    /** Temperature frame bytes for libirtemp [Libirtemp.get_point_temp] (USB_sample). */
+    /** Temperature frame bytes for libirtemp (USB_sample `temp_frame`). */
     @Volatile
     private var thermalFrame: ByteArray? = null
+    /** Full-frame °C map, row-major (`y * decodeWidth + x`). */
+    @Volatile
+    private var thermalCelsius: FloatArray? = null
     /** Selected pixel in thermal/YUYV bitmap space; used to refresh °C every frame. */
     @Volatile
     private var spotBitmapX: Int = -1
@@ -163,39 +169,95 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Updates HUD + spot overlay from libirtemp point measurement at [spotBitmapX]/[spotBitmapY].
+     * HUD + overlay from full-frame [Libirtemp.get_rect_temp] and the spot pixel.
      */
     private fun refreshSpotOverlayFromThermal() {
-        val sx = spotBitmapX
-        val sy = spotBitmapY
-        if (sx < 0 || sy < 0) return
         val dw = decodeWidth
         val dh = decodeHeight
         val tb = thermalFrame
-        val celsius =
-            if (tb == null || dw <= 0 || dh <= 0) {
-                Float.NaN
-            } else {
-                InfisenseThermal.celsiusAt(tb, dw, dh, sx, sy)
-            }
-        val label =
-            if (celsius.isNaN()) {
-                getString(R.string.temperature_no_map)
-            } else {
-                getString(R.string.temperature_spot_value, celsius)
-            }
+        val sx = spotBitmapX
+        val sy = spotBitmapY
+        if (tb == null || dw <= 0 || dh <= 0) return
+        val frame = InfisenseThermal.fullFrameTemp(tb, dw, dh)
+        val spotC =
+            if (sx >= 0 && sy >= 0) InfisenseThermal.celsiusAt(tb, dw, dh, sx, sy)
+            else Float.NaN
+        applyTemperatureUi(dw, dh, sx, sy, frame, spotC)
+    }
+
+    private fun applyTemperatureUi(
+        dw: Int,
+        dh: Int,
+        sx: Int,
+        sy: Int,
+        frame: Libirtemp.FrameTemp?,
+        spotC: Float
+    ) {
         temperatureText.visibility = View.VISIBLE
         temperatureText.text =
-            if (celsius.isNaN()) {
-                getString(R.string.temperature_waiting)
-            } else {
-                getString(R.string.temperature_spot_value, celsius)
+            when {
+                frame != null && !spotC.isNaN() ->
+                    getString(
+                        R.string.temperature_frame_stats,
+                        frame.maxCelsius,
+                        frame.avgCelsius,
+                        frame.minCelsius
+                    ) + "\n" + getString(R.string.temperature_spot_value, spotC)
+                frame != null ->
+                    getString(
+                        R.string.temperature_frame_stats,
+                        frame.maxCelsius,
+                        frame.avgCelsius,
+                        frame.minCelsius
+                    )
+                !spotC.isNaN() -> getString(R.string.temperature_spot_value, spotC)
+                else -> getString(R.string.temperature_waiting)
             }
-        val mapped =
-            InfisenseThermal.bitmapPixelCenterToView(previewImage, dw, dh, sx, sy)
-        if (mapped != null) {
-            thermalSpotOverlay.setSpotAtViewCoords(mapped.first, mapped.second, label)
+
+        val markers = ArrayList<ThermalSpotOverlayView.Marker>(3)
+        if (frame != null) {
+            InfisenseThermal.bitmapPixelCenterToView(
+                previewImage, dw, dh, frame.maxX, frame.maxY
+            )?.let { (vx, vy) ->
+                markers.add(
+                    ThermalSpotOverlayView.Marker(
+                        vx,
+                        vy,
+                        getString(R.string.temperature_max_marker, frame.maxCelsius),
+                        Color.argb(230, 255, 80, 80)
+                    )
+                )
+            }
+            InfisenseThermal.bitmapPixelCenterToView(
+                previewImage, dw, dh, frame.minX, frame.minY
+            )?.let { (vx, vy) ->
+                markers.add(
+                    ThermalSpotOverlayView.Marker(
+                        vx,
+                        vy,
+                        getString(R.string.temperature_min_marker, frame.minCelsius),
+                        Color.argb(230, 80, 180, 255)
+                    )
+                )
+            }
         }
+        if (sx >= 0 && sy >= 0) {
+            val label =
+                if (spotC.isNaN()) getString(R.string.temperature_no_map)
+                else getString(R.string.temperature_spot_value, spotC)
+            InfisenseThermal.bitmapPixelCenterToView(previewImage, dw, dh, sx, sy)
+                ?.let { (vx, vy) ->
+                    markers.add(
+                        ThermalSpotOverlayView.Marker(
+                            vx,
+                            vy,
+                            label,
+                            Color.argb(220, 255, 255, 255)
+                        )
+                    )
+                }
+        }
+        thermalSpotOverlay.setMarkers(markers)
     }
 
     private fun showTemperatureUnavailable(viewX: Float, viewY: Float) {
@@ -399,6 +461,7 @@ class MainActivity : ComponentActivity() {
         spotBitmapX = -1
         spotBitmapY = -1
         thermalFrame = null
+        thermalCelsius = null
         thermalSpotOverlay.clearSpot()
         cameraView.alpha = 1f
         cameraView.isClickable = true
@@ -446,6 +509,7 @@ class MainActivity : ComponentActivity() {
             previewWidth == INFISENSE_COMPOSITE_W &&
                 previewHeight == INFISENSE_COMPOSITE_H
         thermalFrame = null
+        thermalCelsius = null
         camera.setPreviewTexture(cameraView.surfaceTexture)
         camera.setFrameCallback(
             IFrameCallback { frame: ByteBuffer ->
@@ -464,11 +528,14 @@ class MainActivity : ComponentActivity() {
                         null
                     }
                 val yuyvSrc = split?.first ?: full
-                thermalFrame = split?.second
+                val tempMap = split?.second
+                thermalFrame = tempMap
                 if (yuyvSrc.size != yuyvBytes) return@IFrameCallback
                 val copy = yuyvSrc
                 val out = argbBuffer ?: return@IFrameCallback
                 val mode = selectedPseudoMode.get()
+                val sx = spotBitmapX
+                val sy = spotBitmapY
                 frameExecutor?.execute {
                     try {
                         Libirprocess.yuyv_map_to_argb_pseudocolor(
@@ -479,9 +546,20 @@ class MainActivity : ComponentActivity() {
                         )
                         val bmp = displayBitmap ?: return@execute
                         bmp.copyPixelsFromBuffer(ByteBuffer.wrap(out))
+                        val celsiusFrame =
+                            tempMap?.let { InfisenseThermal.toCelsiusFrame(it, w, h) }
+                        thermalCelsius = celsiusFrame
+                        val frameTemp =
+                            tempMap?.let { InfisenseThermal.fullFrameTemp(it, w, h) }
+                        val spotC =
+                            if (tempMap != null && sx >= 0 && sy >= 0) {
+                                InfisenseThermal.celsiusAt(tempMap, w, h, sx, sy)
+                            } else {
+                                Float.NaN
+                            }
                         mainHandler.post {
                             previewImage.setImageBitmap(bmp)
-                            if (spotBitmapX >= 0) refreshSpotOverlayFromThermal()
+                            applyTemperatureUi(w, h, sx, sy, frameTemp, spotC)
                         }
                     } catch (_: Throwable) {
                         // skip bad frame
@@ -597,6 +675,7 @@ class MainActivity : ComponentActivity() {
         decodeWidth = 0
         decodeHeight = 0
         thermalFrame = null
+        thermalCelsius = null
         activeFrameFormat = -1
         spotBitmapX = -1
         spotBitmapY = -1

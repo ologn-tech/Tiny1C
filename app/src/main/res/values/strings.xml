@@ -15,4 +15,7 @@
     <string name="temperature_waiting">--.- °C</string>
     <string name="temperature_no_map">Temperature map needs 256×384 YUYV (Tiny1C composite stream)</string>
     <string name="temperature_tap_hint">Tap preview to move the spot</string>
+    <string name="temperature_frame_stats">Max %1$.1f  Avg %2$.1f  Min %3$.1f</string>
+    <string name="temperature_max_marker">Max %1$.1f °C</string>
+    <string name="temperature_min_marker">Min %1$.1f °C</string>
 </resources>

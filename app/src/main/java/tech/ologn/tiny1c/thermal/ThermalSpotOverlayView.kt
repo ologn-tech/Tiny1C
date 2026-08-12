@@ -8,7 +8,7 @@ import android.util.AttributeSet
 import android.view.View
 
 /**
- * Dot at the tapped pixel plus semi-transparent temperature text above it.
+ * Temperature markers on the preview: spot, plus full-frame max / min.
  */
 class ThermalSpotOverlayView @JvmOverloads constructor(
     context: Context,
@@ -16,15 +16,20 @@ class ThermalSpotOverlayView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    data class Marker(
+        val viewX: Float,
+        val viewY: Float,
+        val text: String,
+        val fillColor: Int,
+    )
+
     private val density = resources.displayMetrics.density
-    /** Space between dot top edge and text (dp above the dot). */
     private val textGapAboveDot = 4f * density
     private val dotRadius = 5f * density
 
     private val paintDotFill =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = Color.argb(220, 255, 255, 255)
         }
     private val paintDotStroke =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -32,50 +37,53 @@ class ThermalSpotOverlayView @JvmOverloads constructor(
             strokeWidth = 1.5f * density
             color = Color.argb(200, 0, 0, 0)
         }
-
     private val paintText =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(200, 255, 255, 255)
-            textSize = 18f * density
+            color = Color.argb(220, 255, 255, 255)
+            textSize = 16f * density
             isFakeBoldText = true
             setShadowLayer(3f * density, 0f, 1f * density, Color.argb(160, 0, 0, 0))
         }
 
-    private var anchorX = 0f
-    private var anchorY = 0f
-    private var label: String? = null
+    private var markers: List<Marker> = emptyList()
 
-    fun setSpotAtViewCoords(viewX: Float, viewY: Float, text: String) {
-        anchorX = viewX
-        anchorY = viewY
-        label = text
+    fun setMarkers(newMarkers: List<Marker>) {
+        markers = newMarkers
         invalidate()
     }
 
+    fun setSpotAtViewCoords(viewX: Float, viewY: Float, text: String) {
+        setMarkers(
+            listOf(
+                Marker(viewX, viewY, text, Color.argb(220, 255, 255, 255))
+            )
+        )
+    }
+
     fun clearSpot() {
-        label = null
+        markers = emptyList()
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val text = label ?: return
+        for (marker in markers) {
+            drawMarker(canvas, marker)
+        }
+    }
 
-        val tw = paintText.measureText(text)
+    private fun drawMarker(canvas: Canvas, marker: Marker) {
+        paintDotFill.color = marker.fillColor
+        canvas.drawCircle(marker.viewX, marker.viewY, dotRadius, paintDotFill)
+        canvas.drawCircle(marker.viewX, marker.viewY, dotRadius, paintDotStroke)
+
+        val tw = paintText.measureText(marker.text)
         val fm = paintText.fontMetrics
         val textHeight = fm.descent - fm.ascent
-
-        var left = anchorX - tw / 2f
-        // Place text just above the dot (gap measured from dot top to text box bottom).
-        var top = anchorY - dotRadius - textGapAboveDot - textHeight
-
+        var left = marker.viewX - tw / 2f
+        var top = marker.viewY - dotRadius - textGapAboveDot - textHeight
         left = left.coerceIn(0f, (width - tw).coerceAtLeast(0f))
         top = top.coerceIn(0f, (height - textHeight).coerceAtLeast(0f))
-
-        canvas.drawCircle(anchorX, anchorY, dotRadius, paintDotFill)
-        canvas.drawCircle(anchorX, anchorY, dotRadius, paintDotStroke)
-
-        val baseline = top - fm.ascent
-        canvas.drawText(text, left, baseline, paintText)
+        canvas.drawText(marker.text, left, top - fm.ascent, paintText)
     }
 }

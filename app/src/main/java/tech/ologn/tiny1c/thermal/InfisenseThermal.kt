@@ -43,6 +43,19 @@ object InfisenseThermal {
         Libirtemp.celsiusAt(tempMap, width, height, x, y)
 
     /**
+     * Full-frame max / min / average via [Libirtemp.get_rect_temp] over the whole map.
+     */
+    fun fullFrameTemp(
+        tempMap: ByteArray,
+        width: Int,
+        height: Int
+    ): Libirtemp.FrameTemp? = Libirtemp.fullFrameTemp(tempMap, width, height)
+
+    /** Every pixel of the temperature frame in °C, row-major (`y * width + x`). */
+    fun toCelsiusFrame(tempMap: ByteArray, width: Int, height: Int): FloatArray? =
+        Libirtemp.toCelsiusFrame(tempMap, width, height)
+
+    /**
      * Maps a touch on an [ImageView] (any scale type) to bitmap pixel coordinates using
      * [ImageView.getImageMatrix] — [Drawable.copyBounds] does not match screen placement for
      * `fitCenter`, so touch tests against bounds often fail silently.
